@@ -1,0 +1,28 @@
+.pill {
+  border-radius: 999px;
+  padding: 0.58rem 1.1rem;
+  border: 1px solid rgba(21, 80, 80, 0.35);
+  background: linear-gradient(160deg, #f4ffff 0%, #dff5f4 100%);
+  color: #0f4f4f;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  box-shadow: 0 8px 16px rgba(15, 79, 79, 0.1);
+}
+
+.pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 11px 18px rgba(15, 79, 79, 0.16);
+}
+
+.active {
+  border-color: rgba(152, 247, 241, 0.52);
+  color: #ecffff;
+  background: linear-gradient(160deg, #176a69 0%, #0f4f4f 100%);
+}

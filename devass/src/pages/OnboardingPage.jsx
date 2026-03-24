@@ -9,19 +9,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
-// ── Available skills list ─────────────────────
-const SKILLS_LIST = [
-  'JavaScript', 'TypeScript', 'React', 'Vue.js', 'Angular',
-  'Node.js', 'Python', 'Django', 'FastAPI', 'Flask',
-  'Java', 'Spring Boot', 'Go', 'Rust', 'C++',
-  'PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'GraphQL',
-  'REST APIs', 'Docker', 'Kubernetes', 'AWS', 'GCP',
-  'Azure', 'CI/CD', 'Git', 'Linux', 'Terraform',
-  'React Native', 'Flutter', 'Swift', 'Kotlin',
-  'Machine Learning', 'TensorFlow', 'PyTorch',
-  'Next.js', 'Tailwind CSS', 'Figma', 'Three.js',
-];
-
 // ── Developer roles ───────────────────────────
 const ROLES = [
   'Frontend Developer',
@@ -91,9 +78,8 @@ export default function OnboardingPage() {
   const [fullName,      setFullName]      = useState('');
   const [availability,  setAvailability]  = useState('');
 
-  // Step 2 — Role & Skills
+  // Step 2 — Role
   const [role,   setRole]   = useState('');
-  const [skills, setSkills] = useState([]); // array of selected skill strings
 
   // Step 3 — Bio
   const [bio, setBio] = useState('');
@@ -102,15 +88,6 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
   const [errors,  setErrors]  = useState({});
-
-  // ── Skill toggle ────────────────────────────
-  const toggleSkill = (skill) => {
-    setSkills((prev) =>
-      prev.includes(skill)
-        ? prev.filter((s) => s !== skill)
-        : [...prev, skill]
-    );
-  };
 
   // ── Step validation ──────────────────────────
   const validateStep = () => {
@@ -124,8 +101,6 @@ export default function OnboardingPage() {
 
     if (step === 2) {
       if (!role)               e.role   = 'Please select your developer role.';
-      if (skills.length === 0) e.skills = 'Select at least one skill.';
-      if (skills.length > 15)  e.skills = 'Maximum 15 skills allowed.';
     }
 
     if (step === 3) {
@@ -166,7 +141,6 @@ export default function OnboardingPage() {
         id:                   user.id,
         full_name:            fullName.trim(),
         developer_role:       role,
-        skills:               skills,
         bio:                  bio.trim() || null,
         availability:         availability,
         phone_number:         user.user_metadata?.phone_number || null,
@@ -225,16 +199,21 @@ export default function OnboardingPage() {
             <p style={{ fontSize: 14, marginBottom: 4 }}>
               <strong>Role:</strong> {role}
             </p>
-            <p style={{ fontSize: 14, marginBottom: 4 }}>
-              <strong>Skills:</strong> {skills.slice(0, 5).join(', ')}{skills.length > 5 ? ` +${skills.length - 5} more` : ''}
-            </p>
             <p style={{ fontSize: 14 }}>
               <strong>Status:</strong> {availability}
             </p>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            Dashboard coming in Step 2 →
+            Next: review your profile →
           </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/profile')}
+            style={{ marginTop: 14 }}
+          >
+            Go to your profile
+          </button>
         </div>
       </div>
     );
@@ -303,11 +282,11 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── STEP 2: Role & Skills ── */}
+        {/* ── STEP 2: Role ── */}
         {step === 2 && (
           <div>
-            <h1 className="auth-heading">Your tech stack</h1>
-            <p className="auth-subheading">What do you build with?</p>
+            <h1 className="auth-heading">Your developer role</h1>
+            <p className="auth-subheading">What is your main focus?</p>
 
             {/* Developer role */}
             <div className="form-group">
@@ -325,30 +304,6 @@ export default function OnboardingPage() {
                 ))}
               </div>
               {errors.role && <p className="field-error" style={{ marginTop: 8 }}>⚠ {errors.role}</p>}
-            </div>
-
-            {/* Skills */}
-            <div className="form-group">
-              <label className="form-label">
-                Skills
-                <span style={{ fontWeight: 400, marginLeft: 6, textTransform: 'none', letterSpacing: 0 }}>
-                  ({skills.length}/15 selected)
-                </span>
-              </label>
-              <div className="skills-grid">
-                {SKILLS_LIST.map((skill) => (
-                  <button
-                    key={skill}
-                    type="button"
-                    className={`skill-badge ${skills.includes(skill) ? 'selected' : ''}`}
-                    onClick={() => toggleSkill(skill)}
-                    disabled={!skills.includes(skill) && skills.length >= 15}
-                  >
-                    {skill}
-                  </button>
-                ))}
-              </div>
-              {errors.skills && <p className="field-error" style={{ marginTop: 8 }}>⚠ {errors.skills}</p>}
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>

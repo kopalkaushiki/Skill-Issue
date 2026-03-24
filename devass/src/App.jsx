@@ -12,6 +12,9 @@ import LoginPage      from './pages/LoginPage';
 import SignupPage     from './pages/SignupPage';
 import VerifyOTPPage  from './pages/VerifyOTPPage';
 import OnboardingPage from './pages/OnboardingPage';
+import DashboardPage from './pages/app/DashboardPage';
+import ProfilePage from './pages/app/ProfilePage';
+import ProjectDetailPage from './pages/app/ProjectDetailPage';
 
 import './styles/globals.css';
 
@@ -38,6 +41,13 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function RootRedirect() {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+  return <Navigate to={user ? '/dashboard' : '/login'} replace />;
+}
+
 // ── App ───────────────────────────────────────
 export default function App() {
   return (
@@ -57,10 +67,34 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectId"
+          element={
+            <ProtectedRoute>
+              <ProjectDetailPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Default redirect */}
-        <Route path="/"  element={<Navigate to="/login" replace />} />
-        <Route path="*"  element={<Navigate to="/login" replace />} />
+        <Route path="/"  element={<RootRedirect />} />
+        <Route path="*"  element={<RootRedirect />} />
       </Routes>
     </BrowserRouter>
   );

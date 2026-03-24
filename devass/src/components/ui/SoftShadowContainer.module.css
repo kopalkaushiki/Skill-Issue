@@ -1,0 +1,10 @@
+.shell {
+  border-radius: 36px;
+  padding: 2px;
+  background: unset;
+  background-color: unset;
+  background-image: none;
+  border: 0px solid rgba(0, 0, 0, 0);
+  border-image: none;
+  box-shadow: none;
+}

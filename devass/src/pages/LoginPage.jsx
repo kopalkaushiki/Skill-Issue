@@ -74,9 +74,8 @@ export default function LoginPage() {
       return;
     }
 
-    // ✅ Success — redirect to onboarding
-    // (In Step 2+ you can check if onboarding is already done and skip)
-    navigate('/onboarding');
+    // ✅ Success — redirect to the logged-in user's profile
+    navigate('/profile');
   };
 
   // ── Render ──────────────────────────────────
