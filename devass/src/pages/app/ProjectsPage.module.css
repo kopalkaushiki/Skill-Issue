@@ -1,0 +1,91 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 14px;
+}
+
+.left {
+  grid-column: span 7;
+}
+
+.right {
+  grid-column: span 5;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px 12px;
+  color: inherit;
+  outline: none;
+}
+
+.textarea {
+  composes: input;
+  min-height: 90px;
+  resize: vertical;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.meta {
+  opacity: 0.8;
+  font-size: 13px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tags span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.empty {
+  opacity: 0.75;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .left,
+  .right {
+    grid-column: span 12;
+  }
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}
+

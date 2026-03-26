@@ -4,7 +4,7 @@ import styles from './BottomNav.module.css';
 
 const items = [
   { to: '/dashboard', label: 'Home', icon: '⌂' },
-  { to: '/projects/project-001', label: 'Projects', icon: '◉' },
+  { to: '/projects', label: 'Projects', icon: '◉' },
   { to: '/profile', label: 'Account', icon: '◌' },
 ];
 

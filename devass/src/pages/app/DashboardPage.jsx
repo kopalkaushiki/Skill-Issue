@@ -29,7 +29,7 @@ export default function DashboardPage() {
       topActions={(
         <>
           <PillButton active>September Build</PillButton>
-          <PillButton to="/projects/project-001">Curved Project</PillButton>
+          <PillButton to="/projects">All Projects</PillButton>
           <PillButton to="/profile">My Profile</PillButton>
         </>
       )}
@@ -42,7 +42,7 @@ export default function DashboardPage() {
             3 milestones are active across your teams. Check the feed for updates, and respond to urgent appeals to keep things moving.
           </p>
           <div className={styles.heroActions}>
-            <PillButton to="/projects/project-001" active>Open Project Room</PillButton>
+            <PillButton to="/projects" active>Open Projects</PillButton>
             <PillButton to="/profile">Tune Skill Profile</PillButton>
           </div>
         </CurvedCard>

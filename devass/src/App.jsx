@@ -14,6 +14,7 @@ import VerifyOTPPage  from './pages/VerifyOTPPage';
 import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/app/DashboardPage';
 import ProfilePage from './pages/app/ProfilePage';
+import ProjectsPage from './pages/app/ProjectsPage';
 import ProjectDetailPage from './pages/app/ProjectDetailPage';
 
 import './styles/globals.css';
@@ -80,6 +81,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects"
+          element={
+            <ProtectedRoute>
+              <ProjectsPage />
             </ProtectedRoute>
           }
         />

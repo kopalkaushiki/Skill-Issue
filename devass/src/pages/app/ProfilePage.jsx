@@ -50,6 +50,10 @@ export default function ProfilePage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
 
+  const [myProjects, setMyProjects] = useState([]);
+  const [myProjectsLoading, setMyProjectsLoading] = useState(true);
+  const [myProjectsError, setMyProjectsError] = useState('');
+
   const [editing, setEditing] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -58,13 +62,13 @@ export default function ProfilePage() {
     full_name: '',
     phone_number: '',
     developer_role: '',
-    skillsText: '',
+    techStackText: '',
     bio: '',
     availability: '',
   });
 
   const panelItems = [
-    { label: 'All Projects', to: '/projects/project-001' },
+    { label: 'All Projects', to: '/projects' },
     { label: 'Edit Profile', action: 'edit' },
     { label: 'My Home', to: '/dashboard' },
     { label: 'Settings' },
@@ -110,6 +114,36 @@ export default function ProfilePage() {
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    (async () => {
+      setMyProjectsLoading(true);
+      setMyProjectsError('');
+
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, title, overview, tech_stack, help_needed, engineer_needed, progress_stage, created_at')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (cancelled) return;
+
+      if (error) {
+        setMyProjects([]);
+        setMyProjectsError(error.message || 'Failed to load projects.');
+      } else {
+        setMyProjects(data || []);
+      }
+      setMyProjectsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
     if (!sidebarOpen) return;
     const onKeyDown = (e) => {
       if (e.key === 'Escape') setSidebarOpen(false);
@@ -143,9 +177,7 @@ export default function ProfilePage() {
     () =>
       normalizeStringArray(
         profile?.tech_stack || profile?.techStack || profile?.techstack || null
-      ).length
-        ? normalizeStringArray(profile?.tech_stack || profile?.techStack || profile?.skills || null)
-        : normalizeStringArray(profile?.skills),
+      ),
     [profile]
   );
 
@@ -176,7 +208,9 @@ export default function ProfilePage() {
       full_name: profile?.full_name || '',
       phone_number: profile?.phone_number || '',
       developer_role: profile?.developer_role || 'Fullstack Developer',
-      skillsText: (Array.isArray(profile?.skills) ? profile.skills : normalizeStringArray(profile?.skills)).join(', '),
+      techStackText: normalizeStringArray(
+        profile?.tech_stack || profile?.techStack || profile?.techstack || null
+      ).join(', '),
       bio: profile?.bio || '',
       availability: profile?.availability || 'Available now',
     });
@@ -197,7 +231,7 @@ export default function ProfilePage() {
     const fullNameTrim = form.full_name.trim();
     const phoneTrim = form.phone_number.trim();
     const bioTrim = form.bio.trim();
-    const skillsArray = normalizeStringArray(form.skillsText);
+    const techStackArray = normalizeStringArray(form.techStackText);
 
     if (!fullNameTrim) {
       setSaveError('Full name is required.');
@@ -214,7 +248,7 @@ export default function ProfilePage() {
       setSaveLoading(false);
       return;
     }
-    if (!skillsArray.length) {
+    if (!techStackArray.length) {
       setSaveError('Please add at least one tech stack item.');
       setSaveLoading(false);
       return;
@@ -230,7 +264,7 @@ export default function ProfilePage() {
       full_name: fullNameTrim,
       phone_number: phoneTrim || null,
       developer_role: form.developer_role,
-      skills: skillsArray,
+      tech_stack: techStackArray,
       bio: bioTrim || null,
       availability: form.availability,
     };
@@ -465,13 +499,13 @@ export default function ProfilePage() {
                   <h3>Tech Stack & Bio</h3>
 
                   <div className="form-group" style={{ marginTop: 14 }}>
-                    <label className="form-label" htmlFor="skillsText">Tech Stack (comma separated)</label>
+                    <label className="form-label" htmlFor="techStackText">Tech Stack (comma separated)</label>
                     <input
-                      id="skillsText"
+                      id="techStackText"
                       type="text"
                       className="form-input"
-                      value={form.skillsText}
-                      onChange={(e) => setForm((f) => ({ ...f, skillsText: e.target.value }))}
+                      value={form.techStackText}
+                      onChange={(e) => setForm((f) => ({ ...f, techStackText: e.target.value }))}
                       placeholder="e.g. React, TypeScript, FastAPI"
                     />
                   </div>
@@ -517,6 +551,68 @@ export default function ProfilePage() {
               <>
                 <section className={styles.grid}>
                   <CurvedCard>
+                    <h3>About</h3>
+                    <p className={styles.meta} style={{ marginTop: 6 }}>
+                      {bioText || 'No bio yet.'}
+                    </p>
+                  </CurvedCard>
+
+                  <CurvedCard>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+                      <h3 style={{ margin: 0 }}>My Projects</h3>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ width: 'auto', padding: '6px 10px' }}
+                        onClick={() => navigate('/projects')}
+                      >
+                        View all
+                      </button>
+                    </div>
+                    {myProjectsError && <p className={styles.meta} style={{ color: 'var(--error)', marginTop: 8 }}>{myProjectsError}</p>}
+                    {myProjectsLoading ? (
+                      <p className={styles.meta} style={{ marginTop: 8 }}>Loading…</p>
+                    ) : (
+                      <>
+                        {!myProjects.length ? (
+                          <p className={styles.meta} style={{ marginTop: 8 }}>No projects yet.</p>
+                        ) : (
+                          <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+                            {myProjects.slice(0, 3).map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                className="btn btn-ghost"
+                                style={{
+                                  width: '100%',
+                                  textAlign: 'left',
+                                  padding: 12,
+                                  borderRadius: 14,
+                                  border: '1px solid rgba(255,255,255,0.10)',
+                                  background: 'rgba(0,0,0,0.18)',
+                                }}
+                                onClick={() => navigate(`/projects/${p.id}`)}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                                  <strong>{p.title}</strong>
+                                  <span className={styles.meta}>{p.progress_stage || ''}</span>
+                                </div>
+                                <p className={styles.meta} style={{ marginTop: 6 }}>
+                                  {p.overview}
+                                </p>
+                                <div className={styles.tags} style={{ marginTop: 8 }}>
+                                  {(p.tech_stack || []).slice(0, 3).map((t) => <span key={`${p.id}-tech-${t}`}>{t}</span>)}
+                                  {(p.help_needed || []).slice(0, 3).map((t) => <span key={`${p.id}-help-${t}`}>{t}</span>)}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </CurvedCard>
+
+                  <CurvedCard>
                     <h3>Tech Stack</h3>
                     <div className={styles.tags}>
                       {techStack.length ? (
@@ -526,15 +622,6 @@ export default function ProfilePage() {
                       )}
                     </div>
                     <p className={styles.meta}>{location}</p>
-                  </CurvedCard>
-                </section>
-
-                <section className={styles.grid}>
-                  <CurvedCard>
-                    <h3>About</h3>
-                    <p className={styles.meta} style={{ marginTop: 6 }}>
-                      {bioText || 'No bio yet.'}
-                    </p>
                   </CurvedCard>
 
                   <CurvedCard>

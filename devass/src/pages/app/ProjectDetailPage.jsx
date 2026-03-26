@@ -1,22 +1,102 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
 import CurvedCard from '../../components/ui/CurvedCard';
 import PillButton from '../../components/ui/PillButton';
-import { collaborationAppeals, projectDetail, recommendedDevelopers } from '../../data/mockData';
+import { collaborationAppeals, recommendedDevelopers } from '../../data/mockData';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabaseClient';
 import styles from './ProjectDetailPage.module.css';
+
+function parseCsv(value) {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
-  const [milestones, setMilestones] = useState(projectDetail.milestones);
-  const [posts, setPosts] = useState(projectDetail.posts);
+  const { user } = useAuth();
+
+  const [project, setProject] = useState(null);
+  const [projectLoading, setProjectLoading] = useState(true);
+  const [projectError, setProjectError] = useState('');
+
+  const [milestones, setMilestones] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [postsError, setPostsError] = useState('');
+
   const [newMilestone, setNewMilestone] = useState({ title: '', deadline: '', progress: 0 });
   const [newPost, setNewPost] = useState({ title: '', description: '', tags: '', deadline: '', urgency: 'Medium' });
 
-  const displayProject = useMemo(
-    () => ({ ...projectDetail, id: projectId || projectDetail.id }),
-    [projectId]
-  );
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+
+    (async () => {
+      setProjectLoading(true);
+      setProjectError('');
+
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      if (cancelled) return;
+
+      if (error) {
+        setProject(null);
+        setProjectError(error.message || 'Failed to load project.');
+      } else {
+        setProject(data);
+      }
+      setProjectLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+
+    (async () => {
+      setPostsLoading(true);
+      setPostsError('');
+
+      const { data, error } = await supabase
+        .from('project_posts')
+        .select('id, title, description, tags, urgency, deadline, created_at, author_id')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (cancelled) return;
+
+      if (error) {
+        setPosts([]);
+        setPostsError(error.message || 'Failed to load project posts.');
+      } else {
+        setPosts(data || []);
+      }
+      setPostsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const displayProject = useMemo(() => {
+    if (!projectId) return null;
+    if (!project) return { id: projectId };
+    return project;
+  }, [project, projectId]);
 
   const matchedDevelopers = useMemo(() => recommendedDevelopers.slice(0, 3), []);
 
@@ -36,24 +116,32 @@ export default function ProjectDetailPage() {
     setNewMilestone({ title: '', deadline: '', progress: 0 });
   };
 
-  const addPost = () => {
+  const addPost = async () => {
+    if (!user || !projectId) return;
     if (!newPost.title.trim() || !newPost.description.trim()) return;
 
-    setPosts((prev) => [
-      {
-        id: `post-${prev.length + 1}`,
-        title: newPost.title.trim(),
-        description: newPost.description.trim(),
-        tags: newPost.tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        deadline: newPost.deadline || 'TBD',
-        urgency: newPost.urgency,
-      },
-      ...prev,
-    ]);
+    const payload = {
+      project_id: projectId,
+      author_id: user.id,
+      title: newPost.title.trim(),
+      description: newPost.description.trim(),
+      tags: parseCsv(newPost.tags),
+      deadline: newPost.deadline || null,
+      urgency: newPost.urgency,
+    };
 
+    const { data, error } = await supabase
+      .from('project_posts')
+      .insert(payload)
+      .select('id, title, description, tags, urgency, deadline, created_at, author_id')
+      .single();
+
+    if (error) {
+      setPostsError(error.message || 'Failed to publish post.');
+      return;
+    }
+
+    setPosts((prev) => [data, ...prev]);
     setNewPost({ title: '', description: '', tags: '', deadline: '', urgency: 'Medium' });
   };
 
@@ -65,32 +153,33 @@ export default function ProjectDetailPage() {
         <>
           <PillButton to="/dashboard">Dashboard</PillButton>
           <PillButton to="/profile">Profile</PillButton>
-          <PillButton active>{displayProject.id}</PillButton>
+          <PillButton active>{displayProject?.id || 'Project'}</PillButton>
         </>
       )}
     >
       <section className={styles.grid}>
         <CurvedCard tone="teal" className={styles.overviewCard}>
           <p className={styles.kicker}>Project Overview</p>
-          <h2>{displayProject.title}</h2>
-          <p>{displayProject.description}</p>
+          <h2>{projectLoading ? 'Loading…' : (displayProject?.title || 'Untitled project')}</h2>
+          {projectError && <p style={{ color: 'var(--error)' }}>{projectError}</p>}
+          {!!displayProject?.overview && <p>{displayProject.overview}</p>}
           <div className={styles.tags}>
-            {displayProject.requiredSkills.map((skill) => (
+            {(displayProject?.tech_stack || []).map((skill) => (
               <span key={skill}>{skill}</span>
             ))}
           </div>
           <div className={styles.leader}>
-            <strong>{displayProject.leader.name}</strong>
-            <span>{displayProject.leader.role}</span>
-            <p>{displayProject.leader.bio}</p>
+            <strong>{displayProject?.project_lead_name || 'Project lead'}</strong>
+            <span>{displayProject?.project_lead_role || ''}</span>
+            <p>{displayProject?.project_lead_contact || ''}</p>
           </div>
         </CurvedCard>
 
         <CurvedCard>
           <h3>GitHub Integration</h3>
-          <a href={displayProject.repository} target="_blank" rel="noreferrer" className={styles.repoLink}>
-            {displayProject.repository}
-          </a>
+          <p className={styles.inlineMeta}>
+            Connect a repo field later (currently not stored for DB-backed projects).
+          </p>
           <div className={styles.stack}>
             {milestones.map((item) => (
               <div key={item.id}>
@@ -154,15 +243,19 @@ export default function ProjectDetailPage() {
         <CurvedCard>
           <h3>Hackathon Timeline</h3>
           <div className={styles.timeline}>
-            {displayProject.timeline.map((item) => (
-              <div key={item.id} className={styles.timelineItem}>
-                <div className={styles.dot} />
-                <div>
-                  <p>{item.label}</p>
-                  <span>{item.date}</span>
+            {(displayProject?.timeline || []).length === 0 ? (
+              <p className={styles.inlineMeta}>No timeline entries yet (add milestones above).</p>
+            ) : (
+              (displayProject.timeline || []).map((item) => (
+                <div key={item.id} className={styles.timelineItem}>
+                  <div className={styles.dot} />
+                  <div>
+                    <p>{item.label}</p>
+                    <span>{item.date}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <h3 className={styles.appealsHeading}>Need Help Now</h3>
@@ -186,6 +279,7 @@ export default function ProjectDetailPage() {
           </div>
 
           <div className={styles.formCol}>
+            {postsError && <p style={{ color: 'var(--error)' }}>{postsError}</p>}
             <input
               className={styles.input}
               placeholder="Post title"
@@ -227,16 +321,20 @@ export default function ProjectDetailPage() {
           </div>
 
           <div className={styles.stack}>
+            {postsLoading && <p className={styles.inlineMeta}>Loading posts…</p>}
+            {!postsLoading && !posts.length && <p className={styles.inlineMeta}>No posts yet.</p>}
             {posts.map((post) => (
               <CurvedCard key={post.id} tone="light" className={styles.innerCard}>
                 <h4>{post.title}</h4>
                 <p>{post.description}</p>
                 <div className={styles.tags}>
-                  {post.tags.map((tag) => (
+                  {(post.tags || []).map((tag) => (
                     <span key={`${post.id}-${tag}`}>{tag}</span>
                   ))}
                 </div>
-                <p className={styles.inlineMeta}>Urgency: {post.urgency} · Deadline: {post.deadline}</p>
+                <p className={styles.inlineMeta}>
+                  Urgency: {post.urgency} · Deadline: {post.deadline || 'TBD'}
+                </p>
               </CurvedCard>
             ))}
           </div>
