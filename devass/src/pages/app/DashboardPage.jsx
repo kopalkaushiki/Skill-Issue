@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import AppLayout from '../../components/layout/AppLayout';
 import CurvedCard from '../../components/ui/CurvedCard';
 import PillButton from '../../components/ui/PillButton';
 import SoftShadowContainer from '../../components/ui/SoftShadowContainer';
+import NotificationDropdown from '../../components/ui/NotificationDropdown';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabaseClient';
 import {
   dashboardFeed,
   collaborationAppeals,
@@ -11,54 +14,111 @@ import {
 import styles from './DashboardPage.module.css';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const [profileName, setProfileName] = useState('');
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchProfile = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      if (data?.full_name) {
+        setProfileName(data.full_name);
+      }
+    };
+    fetchProfile();
+  }, [user]);
+
+  const displayName = profileName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Developer';
+
   const [query, setQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
 
   const filteredDevelopers = useMemo(() => {
     if (!query.trim()) return recommendedDevelopers;
+    if (filterType === 'projects') return [];
 
     const lower = query.toLowerCase();
-    return recommendedDevelopers.filter((dev) =>
-      `${dev.name} ${dev.role} ${dev.skills.join(' ')}`.toLowerCase().includes(lower)
-    );
-  }, [query]);
+    return recommendedDevelopers.filter((dev) => {
+      if (filterType === 'name') return dev.name.toLowerCase().includes(lower);
+      if (filterType === 'skills') return dev.skills.join(' ').toLowerCase().includes(lower);
+      return `${dev.name} ${dev.role} ${dev.skills.join(' ')}`.toLowerCase().includes(lower);
+    });
+  }, [query, filterType]);
+
+  const filteredFeed = useMemo(() => {
+    if (!query.trim()) return dashboardFeed;
+    if (filterType === 'name') return [];
+
+    const lower = query.toLowerCase();
+    return dashboardFeed.filter(item => {
+      if (filterType === 'projects') return item.project.toLowerCase().includes(lower);
+      if (filterType === 'skills') return item.tags.join(' ').toLowerCase().includes(lower);
+      return `${item.project} ${item.tags.join(' ')} ${item.update}`.toLowerCase().includes(lower);
+    });
+  }, [query, filterType]);
+
+  const filteredAppeals = useMemo(() => {
+    if (!query.trim()) return collaborationAppeals;
+    if (filterType === 'name' || filterType === 'skills') return [];
+
+    const lower = query.toLowerCase();
+    return collaborationAppeals.filter(appeal => {
+      return `${appeal.title} ${appeal.detail}`.toLowerCase().includes(lower);
+    });
+  }, [query, filterType]);
 
   return (
     <AppLayout
-      title="Collaboration Dashboard"
-      subtitle="Find teammates, respond to urgent appeals, and keep momentum moving."
+      title="Dashboard"
+      subtitle=""
       topActions={(
-        <>
-          <PillButton active>September Build</PillButton>
-          <PillButton to="/projects">All Projects</PillButton>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className={styles.headerSearch}>
+            <div className={styles.filterWrapper}>
+              <span className={styles.filterIcon}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+              </span>
+              <select
+                className={styles.filterSelect}
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                aria-label="Filter type"
+              >
+                <option value="all">All</option>
+                <option value="skills">Skills</option>
+                <option value="projects">Projects</option>
+                <option value="name">Users</option>
+              </select>
+            </div>
+            <input
+              id="dev-search"
+              type="search"
+              className={styles.headerSearchInput}
+              placeholder="Search dashboard..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <NotificationDropdown />
           <PillButton to="/profile">My Profile</PillButton>
-        </>
+        </div>
       )}
     >
       <SoftShadowContainer className={styles.heroWrap}>
         <CurvedCard tone="teal" elevated className={styles.heroCard}>
-          <p className={styles.heroKicker}>Daily Focus</p>
-          <h2>New component Add text</h2>
-          <p>
-            3 milestones are active across your teams. Check the feed for updates, and respond to urgent appeals to keep things moving.
-          </p>
+          <p className={styles.heroKicker}></p>
+          <h2>Welcome back, {displayName}!</h2>
           <div className={styles.heroActions}>
-            <PillButton to="/projects" active>Open Projects</PillButton>
-            <PillButton to="/profile">Tune Skill Profile</PillButton>
+
           </div>
         </CurvedCard>
       </SoftShadowContainer>
-
-      <div className={styles.searchArea}>
-        <label htmlFor="dev-search">Search developers by skill</label>
-        <input
-          id="dev-search"
-          type="search"
-          className={styles.searchInput}
-          placeholder="Try React, FastAPI, Terraform..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
 
       <section className={styles.grid}>
         <CurvedCard className={styles.feedColumn}>
@@ -67,7 +127,7 @@ export default function DashboardPage() {
             <PillButton>Live</PillButton>
           </div>
           <div className={styles.stack}>
-            {dashboardFeed.map((item) => (
+            {filteredFeed.map((item) => (
               <CurvedCard key={item.id} tone="light" className={styles.innerCard}>
                 <p className={styles.time}>{item.time}</p>
                 <h4>{item.project}</h4>
@@ -79,6 +139,9 @@ export default function DashboardPage() {
                 </div>
               </CurvedCard>
             ))}
+            {!filteredFeed.length && (
+              <p className={styles.empty}>No recent project updates for this search.</p>
+            )}
           </div>
         </CurvedCard>
 
@@ -89,7 +152,7 @@ export default function DashboardPage() {
               <PillButton active>Urgent</PillButton>
             </div>
             <div className={styles.stackCompact}>
-              {collaborationAppeals.map((appeal) => (
+              {filteredAppeals.map((appeal) => (
                 <CurvedCard key={appeal.id} tone="light" className={styles.innerCard}>
                   <p className={styles.urgency}>{appeal.urgency}</p>
                   <h4>{appeal.title}</h4>
@@ -97,6 +160,9 @@ export default function DashboardPage() {
                   <p className={styles.deadline}>Deadline: {appeal.deadline}</p>
                 </CurvedCard>
               ))}
+              {!filteredAppeals.length && (
+                <p className={styles.empty}>No active appeals match this search.</p>
+              )}
             </div>
           </CurvedCard>
 
