@@ -1,35 +1,9 @@
-<<<<<<< HEAD
-import React, { useMemo, useState, useEffect } from 'react';
-=======
-<<<<<<< Updated upstream
-import React, { useMemo, useState } from 'react';
-=======
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
->>>>>>> Stashed changes
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
 import AppLayout from '../../components/layout/AppLayout';
 import CurvedCard from '../../components/ui/CurvedCard';
 import PillButton from '../../components/ui/PillButton';
 import SoftShadowContainer from '../../components/ui/SoftShadowContainer';
-<<<<<<< HEAD
-import NotificationDropdown from '../../components/ui/NotificationDropdown';
-import { useAuth } from '../../hooks/useAuth';
-import { supabase } from '../../lib/supabaseClient';
-=======
-<<<<<<< Updated upstream
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
-import {
-  dashboardFeed,
-  collaborationAppeals,
-  recommendedDevelopers,
-} from '../../data/mockData';
-import styles from './DashboardPage.module.css';
-
-export default function DashboardPage() {
-<<<<<<< HEAD
-=======
-=======
 import NotificationDropdown from '../../components/ui/NotificationDropdown';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
@@ -37,7 +11,6 @@ import styles from './DashboardPage.module.css';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
   const { user } = useAuth();
   const [profileName, setProfileName] = useState('');
 
@@ -58,20 +31,9 @@ export default function DashboardPage() {
 
   const displayName = profileName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Developer';
 
-<<<<<<< HEAD
-=======
->>>>>>> Stashed changes
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
   const [query, setQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
 
-<<<<<<< Updated upstream
-  const filteredDevelopers = useMemo(() => {
-    if (!query.trim()) return recommendedDevelopers;
-<<<<<<< HEAD
-    if (filterType === 'projects') return [];
-=======
-=======
   const [projectPosts, setProjectPosts] = useState([]);
   const [projectPostRoles, setProjectPostRoles] = useState([]);
   const [myPostApplications, setMyPostApplications] = useState([]);
@@ -83,8 +45,6 @@ export default function DashboardPage() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState('');
->>>>>>> Stashed changes
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
 
   useEffect(() => {
     const loadProjectPosts = async () => {
@@ -269,42 +229,6 @@ export default function DashboardPage() {
   const filteredProjectPosts = useMemo(() => {
     if (!query.trim()) return projectPosts;
     const lower = query.toLowerCase();
-<<<<<<< HEAD
-    return recommendedDevelopers.filter((dev) => {
-      if (filterType === 'name') return dev.name.toLowerCase().includes(lower);
-      if (filterType === 'skills') return dev.skills.join(' ').toLowerCase().includes(lower);
-      return `${dev.name} ${dev.role} ${dev.skills.join(' ')}`.toLowerCase().includes(lower);
-    });
-  }, [query, filterType]);
-
-  const filteredFeed = useMemo(() => {
-    if (!query.trim()) return dashboardFeed;
-    if (filterType === 'name') return [];
-
-    const lower = query.toLowerCase();
-    return dashboardFeed.filter(item => {
-      if (filterType === 'projects') return item.project.toLowerCase().includes(lower);
-      if (filterType === 'skills') return item.tags.join(' ').toLowerCase().includes(lower);
-      return `${item.project} ${item.tags.join(' ')} ${item.update}`.toLowerCase().includes(lower);
-    });
-  }, [query, filterType]);
-
-  const filteredAppeals = useMemo(() => {
-    if (!query.trim()) return collaborationAppeals;
-    if (filterType === 'name' || filterType === 'skills') return [];
-
-    const lower = query.toLowerCase();
-    return collaborationAppeals.filter(appeal => {
-      return `${appeal.title} ${appeal.detail}`.toLowerCase().includes(lower);
-    });
-  }, [query, filterType]);
-=======
-<<<<<<< Updated upstream
-    return recommendedDevelopers.filter((dev) =>
-      `${dev.name} ${dev.role} ${dev.skills.join(' ')}`.toLowerCase().includes(lower)
-    );
-  }, [query]);
-=======
     return projectPosts.filter((post) => {
       const text = `${post.title} ${post.description} ${post.hackathon_name || ''} ${post.hackathon_timeline || ''}`.toLowerCase();
       return text.includes(lower);
@@ -318,22 +242,12 @@ export default function DashboardPage() {
       `${u.full_name || ''} ${u.developer_role || ''}`.toLowerCase().includes(lower)
     );
   }, [users, query]);
->>>>>>> Stashed changes
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
 
   return (
     <AppLayout
       title="Dashboard"
       subtitle=""
       topActions={(
-<<<<<<< HEAD
-=======
-<<<<<<< Updated upstream
-        <>
-          <PillButton active>September Build</PillButton>
-          <PillButton to="/projects">All Projects</PillButton>
-=======
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className={styles.headerSearch}>
             <div className={styles.filterWrapper}>
@@ -364,12 +278,8 @@ export default function DashboardPage() {
             />
           </div>
           <NotificationDropdown />
-<<<<<<< HEAD
-=======
           <PillButton to="/publish-collaboration-request">Publish Request</PillButton>
           <PillButton to="/messages">Messages</PillButton>
->>>>>>> Stashed changes
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
           <PillButton to="/profile">My Profile</PillButton>
         </div>
       )}
@@ -390,26 +300,6 @@ export default function DashboardPage() {
             <h3>Project Requests</h3>
             <PillButton>Apply</PillButton>
           </div>
-<<<<<<< Updated upstream
-          <div className={styles.stack}>
-            {filteredFeed.map((item) => (
-              <CurvedCard key={item.id} tone="light" className={styles.innerCard}>
-                <p className={styles.time}>{item.time}</p>
-                <h4>{item.project}</h4>
-                <p>{item.update}</p>
-                <div className={styles.tags}>
-                  {item.tags.map((tag) => (
-                    <span key={tag}>{tag}</span>
-                  ))}
-                </div>
-              </CurvedCard>
-            ))}
-<<<<<<< HEAD
-            {!filteredFeed.length && (
-              <p className={styles.empty}>No recent project updates for this search.</p>
-            )}
-=======
-=======
           <div className={styles.stackCompact}>
             {projectPostsLoading && <p className={styles.empty}>Loading requests…</p>}
             {!projectPostsLoading && projectPostsError && (
@@ -494,8 +384,6 @@ export default function DashboardPage() {
                 </CurvedCard>
               );
             })}
->>>>>>> Stashed changes
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
           </div>
         </CurvedCard>
 
@@ -508,37 +396,8 @@ export default function DashboardPage() {
             {usersLoading && <p className={styles.empty}>Loading users…</p>}
             {usersError && <p className={styles.empty} style={{ color: 'var(--error)' }}>{usersError}</p>}
             <div className={styles.stackCompact}>
-<<<<<<< HEAD
-              {filteredAppeals.map((appeal) => (
-=======
-<<<<<<< Updated upstream
-              {collaborationAppeals.map((appeal) => (
->>>>>>> 0a6f381 (Updated the Profile page with github better project ui)
-                <CurvedCard key={appeal.id} tone="light" className={styles.innerCard}>
-                  <p className={styles.urgency}>{appeal.urgency}</p>
-                  <h4>{appeal.title}</h4>
-                  <p>{appeal.detail}</p>
-                  <p className={styles.deadline}>Deadline: {appeal.deadline}</p>
-                </CurvedCard>
-              ))}
-              {!filteredAppeals.length && (
-                <p className={styles.empty}>No active appeals match this search.</p>
-              )}
-            </div>
-          </CurvedCard>
-
-          <CurvedCard>
-            <div className={styles.sectionHeader}>
-              <h3>Recommended Developers</h3>
-              <PillButton>Skill Match</PillButton>
-            </div>
-            <div className={styles.stackCompact}>
-              {filteredDevelopers.map((dev) => (
-                <CurvedCard key={dev.id} tone="light" className={styles.innerCard}>
-=======
               {filteredUsers.slice(0, 12).map((u) => (
                 <CurvedCard key={u.id} tone="light" className={styles.innerCard}>
->>>>>>> Stashed changes
                   <div className={styles.devHeader}>
                     <div>
                       <h4>{u.full_name || 'Unnamed user'}</h4>
