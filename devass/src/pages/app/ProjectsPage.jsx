@@ -39,9 +39,6 @@ export default function ProjectsPage() {
     title: '',
     overview: '',
     techStackText: '',
-    projectLeadName: '',
-    projectLeadRole: '',
-    projectLeadContact: '',
     helpNeededText: '',
     engineerNeeded: '',
     progressStage: '',
@@ -93,9 +90,6 @@ export default function ProjectsPage() {
       title: createForm.title.trim(),
       overview: createForm.overview.trim(),
       tech_stack: parseCsv(createForm.techStackText),
-      project_lead_name: createForm.projectLeadName.trim(),
-      project_lead_role: createForm.projectLeadRole.trim(),
-      project_lead_contact: createForm.projectLeadContact.trim(),
       help_needed: parseCsv(createForm.helpNeededText),
       engineer_needed: createForm.engineerNeeded.trim(),
       progress_stage: createForm.progressStage.trim(),
@@ -117,9 +111,6 @@ export default function ProjectsPage() {
       title: '',
       overview: '',
       techStackText: '',
-      projectLeadName: '',
-      projectLeadRole: '',
-      projectLeadContact: '',
       helpNeededText: '',
       engineerNeeded: '',
       progressStage: '',
@@ -144,6 +135,7 @@ export default function ProjectsPage() {
         <>
           <PillButton to="/dashboard">Dashboard</PillButton>
           <PillButton to="/profile">Profile</PillButton>
+          <PillButton to="/publish-collaboration-request">Publish Request</PillButton>
           <PillButton active>All Projects</PillButton>
         </>
       )}
@@ -236,27 +228,6 @@ export default function ProjectsPage() {
                 onChange={(e) => setCreateForm((f) => ({ ...f, progressStage: e.target.value }))}
               />
             </div>
-
-            <div className={styles.formRow}>
-              <input
-                className={styles.input}
-                placeholder="Project lead name"
-                value={createForm.projectLeadName}
-                onChange={(e) => setCreateForm((f) => ({ ...f, projectLeadName: e.target.value }))}
-              />
-              <input
-                className={styles.input}
-                placeholder="Project lead role"
-                value={createForm.projectLeadRole}
-                onChange={(e) => setCreateForm((f) => ({ ...f, projectLeadRole: e.target.value }))}
-              />
-            </div>
-            <input
-              className={styles.input}
-              placeholder="Project lead contact (email / link)"
-              value={createForm.projectLeadContact}
-              onChange={(e) => setCreateForm((f) => ({ ...f, projectLeadContact: e.target.value }))}
-            />
 
             <div className={styles.formRow}>
               <input

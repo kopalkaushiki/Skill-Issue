@@ -1,20 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AppLayout from '../../components/layout/AppLayout';
-import CurvedCard from '../../components/ui/CurvedCard';
-import PillButton from '../../components/ui/PillButton';
-import { collaborationAppeals, recommendedDevelopers } from '../../data/mockData';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
 import styles from './ProjectDetailPage.module.css';
-
-function parseCsv(value) {
-  if (!value) return [];
-  return value
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -24,13 +13,14 @@ export default function ProjectDetailPage() {
   const [projectLoading, setProjectLoading] = useState(true);
   const [projectError, setProjectError] = useState('');
 
-  const [milestones, setMilestones] = useState([]);
   const [posts, setPosts] = useState([]);
+  const [postRoles, setPostRoles] = useState([]);
+  const [applications, setApplications] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [postsError, setPostsError] = useState('');
+  const [postsRefreshKey, setPostsRefreshKey] = useState(0);
+  const [actionError, setActionError] = useState('');
 
-  const [newMilestone, setNewMilestone] = useState({ title: '', deadline: '', progress: 0 });
-  const [newPost, setNewPost] = useState({ title: '', description: '', tags: '', deadline: '', urgency: 'Medium' });
 
   useEffect(() => {
     if (!projectId) return;
@@ -72,7 +62,9 @@ export default function ProjectDetailPage() {
 
       const { data, error } = await supabase
         .from('project_posts')
-        .select('id, title, description, tags, urgency, deadline, created_at, author_id')
+        .select(
+          'id, project_id, author_id, title, description, tags, urgency, deadline, created_at, post_type, hackathon_name, hackathon_timeline, team_name'
+        )
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
@@ -80,17 +72,72 @@ export default function ProjectDetailPage() {
 
       if (error) {
         setPosts([]);
+        setPostRoles([]);
+        setApplications([]);
         setPostsError(error.message || 'Failed to load project posts.');
-      } else {
-        setPosts(data || []);
+        setPostsLoading(false);
+        return;
       }
+
+      const nextPosts = data || [];
+      setPosts(nextPosts);
+
+      const postIds = nextPosts.map((p) => p.id);
+      if (!postIds.length) {
+        setPostRoles([]);
+        setApplications([]);
+        setPostsLoading(false);
+        return;
+      }
+
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('post_roles')
+        .select(
+          'id, project_post_id, requested_role, skill, proficiency_level, soft_skills, number_teammates_required'
+        )
+        .in('project_post_id', postIds);
+
+      if (cancelled) return;
+
+      if (rolesError) {
+        setPostRoles([]);
+      } else {
+        setPostRoles(rolesData || []);
+      }
+
+      if (!user) {
+        setApplications([]);
+        setPostsLoading(false);
+        return;
+      }
+
+      const roleIds = (rolesData || []).map((r) => r.id);
+      if (!roleIds.length) {
+        setApplications([]);
+        setPostsLoading(false);
+        return;
+      }
+
+      const { data: appsData, error: appsError } = await supabase
+        .from('post_applications')
+        .select('id, post_role_id, applicant_id, status')
+        .in('post_role_id', roleIds);
+
+      if (cancelled) return;
+
+      if (appsError) {
+        setApplications([]);
+      } else {
+        setApplications(appsData || []);
+      }
+
       setPostsLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, user?.id, postsRefreshKey]);
 
   const displayProject = useMemo(() => {
     if (!projectId) return null;
@@ -98,271 +145,253 @@ export default function ProjectDetailPage() {
     return project;
   }, [project, projectId]);
 
-  const matchedDevelopers = useMemo(() => recommendedDevelopers.slice(0, 3), []);
+  const applyToRole = async (postRoleId) => {
+    if (!user) return;
 
-  const addMilestone = () => {
-    if (!newMilestone.title.trim() || !newMilestone.deadline) return;
-
-    setMilestones((prev) => [
-      ...prev,
-      {
-        id: `m-${prev.length + 1}`,
-        title: newMilestone.title.trim(),
-        deadline: newMilestone.deadline,
-        progress: Number(newMilestone.progress || 0),
-        status: 'Planned',
-      },
-    ]);
-    setNewMilestone({ title: '', deadline: '', progress: 0 });
-  };
-
-  const addPost = async () => {
-    if (!user || !projectId) return;
-    if (!newPost.title.trim() || !newPost.description.trim()) return;
-
-    const payload = {
-      project_id: projectId,
-      author_id: user.id,
-      title: newPost.title.trim(),
-      description: newPost.description.trim(),
-      tags: parseCsv(newPost.tags),
-      deadline: newPost.deadline || null,
-      urgency: newPost.urgency,
-    };
-
-    const { data, error } = await supabase
-      .from('project_posts')
-      .insert(payload)
-      .select('id, title, description, tags, urgency, deadline, created_at, author_id')
-      .single();
+    setActionError('');
+    const { error } = await supabase
+      .from('post_applications')
+      .insert({
+        post_role_id: postRoleId,
+        applicant_id: user.id,
+        status: 'pending',
+      });
 
     if (error) {
-      setPostsError(error.message || 'Failed to publish post.');
+      setActionError(error.message || 'Failed to apply for this role.');
       return;
     }
 
-    setPosts((prev) => [data, ...prev]);
-    setNewPost({ title: '', description: '', tags: '', deadline: '', urgency: 'Medium' });
+    setPostsRefreshKey((k) => k + 1);
+  };
+
+  const decideApplication = async (applicationId, nextStatus) => {
+    if (!user) return;
+    if (nextStatus !== 'accepted' && nextStatus !== 'rejected') return;
+
+    const application = applications.find((a) => a.id === applicationId);
+    if (!application) return;
+
+    const role = postRoles.find((r) => r.id === application.post_role_id);
+    const post = role ? posts.find((p) => p.id === role.project_post_id) : null;
+
+    if (!role || !post) return;
+    if (post.author_id !== user.id) return;
+
+    setActionError('');
+
+    const { error: updateError } = await supabase
+      .from('post_applications')
+      .update({ status: nextStatus })
+      .eq('id', applicationId);
+
+    if (updateError) {
+      setActionError(updateError.message || 'Failed to update application.');
+      return;
+    }
+
+    // Create a notification for the applicant.
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: application.applicant_id,
+        from_user_id: user.id,
+        type: nextStatus === 'accepted' ? 'application_accepted' : 'application_rejected',
+        post_application_id: applicationId,
+        is_read: false,
+        metadata: {
+          project_id: projectId,
+          post_id: post.id,
+          post_role_id: role.id,
+        },
+      });
+
+    if (notifError) {
+      setActionError(notifError.message || 'Application updated, but notifications failed.');
+    }
+
+    setPostsRefreshKey((k) => k + 1);
   };
 
   return (
     <AppLayout
-      title="Project Collaboration Room"
-      subtitle="Plan milestones, attract contributors, and keep delivery visible."
+      title="Project"
+      subtitle=""
       topActions={(
-        <>
-          <PillButton to="/dashboard">Dashboard</PillButton>
-          <PillButton to="/profile">Profile</PillButton>
-          <PillButton active>{displayProject?.id || 'Project'}</PillButton>
-        </>
+        <div className={styles.topActions}>
+          <a href="/dashboard" className={styles.navBtn}>Home</a>
+          <a href="/projects" className={styles.navBtn}>Projects</a>
+          <a href="/profile" className={styles.navBtn}>Profile</a>
+        </div>
       )}
     >
-      <section className={styles.grid}>
-        <CurvedCard tone="teal" className={styles.overviewCard}>
-          <p className={styles.kicker}>Project Overview</p>
-          <h2>{projectLoading ? 'Loading…' : (displayProject?.title || 'Untitled project')}</h2>
+      <section className={styles.hero}>
+        <div className={styles.projectIcon}>
+          {String(displayProject?.title || 'P').charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <h1>{projectLoading ? 'Loading...' : (displayProject?.title || 'Untitled project')}</h1>
           {projectError && <p style={{ color: 'var(--error)' }}>{projectError}</p>}
-          {!!displayProject?.overview && <p>{displayProject.overview}</p>}
+          <p className={styles.subtitle}>{displayProject?.overview || 'No project summary yet.'}</p>
+          <div className={styles.metaRow}>
+            <span>Stage: {displayProject?.progress_stage || 'New'}</span>
+            <span>Need: {displayProject?.engineer_needed || 'Generalists'}</span>
+            <span>ID: {(displayProject?.id || '').slice(0, 8)}</span>
+          </div>
           <div className={styles.tags}>
-            {(displayProject?.tech_stack || []).map((skill) => (
-              <span key={skill}>{skill}</span>
-            ))}
+            {(displayProject?.tech_stack || []).map((skill) => <span key={skill}>{skill}</span>)}
           </div>
-          <div className={styles.leader}>
-            <strong>{displayProject?.project_lead_name || 'Project lead'}</strong>
-            <span>{displayProject?.project_lead_role || ''}</span>
-            <p>{displayProject?.project_lead_contact || ''}</p>
-          </div>
-        </CurvedCard>
+        </div>
+      </section>
 
-        <CurvedCard>
-          <h3>GitHub Integration</h3>
-          <p className={styles.inlineMeta}>
-            Connect a repo field later (currently not stored for DB-backed projects).
-          </p>
-          <div className={styles.stack}>
-            {milestones.map((item) => (
-              <div key={item.id}>
-                <div className={styles.progressMeta}>
-                  <span>{item.title}</span>
-                  <strong>{item.progress}%</strong>
-                </div>
-                <div className={styles.progressBar}>
-                  <div style={{ width: `${item.progress}%` }} />
-                </div>
+      <section className={styles.contentGrid}>
+        <aside className={styles.sidePanel}>
+          <div className={styles.panelBlock}>
+            <h3>Project Links</h3>
+            <p className={styles.meta}>Add GitHub/demo links in next iteration.</p>
+          </div>
+          <div className={styles.panelBlock}>
+            <h3>Team</h3>
+            <div className={styles.teamRow}>
+              <div className={styles.memberAvatar}>
+                {String(user?.email || 'U').charAt(0).toUpperCase()}
               </div>
-            ))}
+              <div>
+                <strong>{user?.email?.split('@')[0] || 'Owner'}</strong>
+                <p className={styles.meta}>Project Owner</p>
+              </div>
+            </div>
           </div>
-        </CurvedCard>
-      </section>
+        </aside>
 
-      <section className={styles.grid}>
-        <CurvedCard>
-          <div className={styles.sectionHeader}>
-            <h3>Milestones (Leader)</h3>
-            <PillButton active>Add</PillButton>
-          </div>
-          <div className={styles.formRow}>
-            <input
-              className={styles.input}
-              placeholder="Milestone title"
-              value={newMilestone.title}
-              onChange={(e) => setNewMilestone((prev) => ({ ...prev, title: e.target.value }))}
-            />
-            <input
-              className={styles.input}
-              type="date"
-              value={newMilestone.deadline}
-              onChange={(e) => setNewMilestone((prev) => ({ ...prev, deadline: e.target.value }))}
-            />
-          </div>
-          <div className={styles.formRow}>
-            <input
-              className={styles.input}
-              type="number"
-              min="0"
-              max="100"
-              value={newMilestone.progress}
-              onChange={(e) => setNewMilestone((prev) => ({ ...prev, progress: e.target.value }))}
-              placeholder="Progress %"
-            />
-            <PillButton onClick={addMilestone} active>Add Milestone</PillButton>
-          </div>
-
-          <div className={styles.stack}>
-            {milestones.map((milestone) => (
-              <CurvedCard key={milestone.id} tone="light" className={styles.innerCard}>
-                <h4>{milestone.title}</h4>
-                <p>Deadline: {milestone.deadline}</p>
-                <p>Status: {milestone.status}</p>
-              </CurvedCard>
-            ))}
-          </div>
-        </CurvedCard>
-
-        <CurvedCard>
-          <h3>Hackathon Timeline</h3>
-          <div className={styles.timeline}>
-            {(displayProject?.timeline || []).length === 0 ? (
-              <p className={styles.inlineMeta}>No timeline entries yet (add milestones above).</p>
-            ) : (
-              (displayProject.timeline || []).map((item) => (
-                <div key={item.id} className={styles.timelineItem}>
-                  <div className={styles.dot} />
-                  <div>
-                    <p>{item.label}</p>
-                    <span>{item.date}</span>
-                  </div>
+        <main className={styles.mainPanel}>
+          <section className={styles.block}>
+            <h3>What this project solves</h3>
+            <p>{displayProject?.overview || 'No detailed description yet.'}</p>
+            {!!(displayProject?.help_needed || []).length && (
+              <>
+                <h4>Where help is needed</h4>
+                <div className={styles.tags}>
+                  {(displayProject.help_needed || []).map((item) => <span key={item}>{item}</span>)}
                 </div>
-              ))
+              </>
             )}
-          </div>
+          </section>
 
-          <h3 className={styles.appealsHeading}>Need Help Now</h3>
-          <div className={styles.stackCompact}>
-            {collaborationAppeals.map((appeal) => (
-              <CurvedCard key={appeal.id} tone="light" className={styles.innerCard}>
-                <h4>{appeal.title}</h4>
-                <p>{appeal.detail}</p>
-                <p className={styles.inlineMeta}>{appeal.urgency} · {appeal.deadline}</p>
-              </CurvedCard>
-            ))}
-          </div>
-        </CurvedCard>
-      </section>
-
-      <section className={styles.grid}>
-        <CurvedCard>
-          <div className={styles.sectionHeader}>
-            <h3>Project Posts</h3>
-            <PillButton>Leader Feed</PillButton>
-          </div>
-
-          <div className={styles.formCol}>
-            {postsError && <p style={{ color: 'var(--error)' }}>{postsError}</p>}
-            <input
-              className={styles.input}
-              placeholder="Post title"
-              value={newPost.title}
-              onChange={(e) => setNewPost((prev) => ({ ...prev, title: e.target.value }))}
-            />
-            <textarea
-              className={styles.textarea}
-              placeholder="Describe the project need"
-              value={newPost.description}
-              onChange={(e) => setNewPost((prev) => ({ ...prev, description: e.target.value }))}
-            />
-            <div className={styles.formRow}>
-              <input
-                className={styles.input}
-                placeholder="Tags (comma separated)"
-                value={newPost.tags}
-                onChange={(e) => setNewPost((prev) => ({ ...prev, tags: e.target.value }))}
-              />
-              <input
-                className={styles.input}
-                type="date"
-                value={newPost.deadline}
-                onChange={(e) => setNewPost((prev) => ({ ...prev, deadline: e.target.value }))}
-              />
+          <section className={styles.block}>
+            <h3>Collaboration Requests</h3>
+            <div className={styles.rowActions} style={{ marginBottom: 10 }}>
+              <a href="/publish-collaboration-request" className={styles.navBtn}>Publish Collaboration Request</a>
             </div>
-            <div className={styles.formRow}>
-              <select
-                className={styles.input}
-                value={newPost.urgency}
-                onChange={(e) => setNewPost((prev) => ({ ...prev, urgency: e.target.value }))}
-              >
-                <option>Low</option>
-                <option>Medium</option>
-                <option>High</option>
-              </select>
-              <PillButton onClick={addPost} active>Publish Post</PillButton>
-            </div>
-          </div>
-
-          <div className={styles.stack}>
+            {actionError && <p style={{ color: 'var(--error)' }}>{actionError}</p>}
             {postsLoading && <p className={styles.inlineMeta}>Loading posts…</p>}
             {!postsLoading && !posts.length && <p className={styles.inlineMeta}>No posts yet.</p>}
-            {posts.map((post) => (
-              <CurvedCard key={post.id} tone="light" className={styles.innerCard}>
-                <h4>{post.title}</h4>
-                <p>{post.description}</p>
-                <div className={styles.tags}>
-                  {(post.tags || []).map((tag) => (
-                    <span key={`${post.id}-${tag}`}>{tag}</span>
-                  ))}
-                </div>
-                <p className={styles.inlineMeta}>
-                  Urgency: {post.urgency} · Deadline: {post.deadline || 'TBD'}
-                </p>
-              </CurvedCard>
-            ))}
-          </div>
-        </CurvedCard>
+            {posts.map((post) => {
+              const isCreator = user && post.author_id === user.id;
+              const rolesForPost = postRoles.filter((r) => r.project_post_id === post.id);
+              const postTypeLabel = post.post_type === 'hackathon_team_building' ? 'Hackathon' : 'Project';
 
-        <CurvedCard>
-          <h3>Skill-Based Matching</h3>
-          <div className={styles.stackCompact}>
-            {matchedDevelopers.map((dev) => (
-              <CurvedCard key={dev.id} tone="light" className={styles.innerCard}>
-                <div className={styles.devHead}>
-                  <h4>{dev.name}</h4>
-                  <strong>{dev.match}%</strong>
+              return (
+                <div key={post.id} className={styles.postRow}>
+                  <div className={styles.postHeader}>
+                    <h4 style={{ margin: 0 }}>{post.title}</h4>
+                    <span className={styles.meta}>{postTypeLabel}</span>
+                  </div>
+                  <p style={{ marginTop: 8 }}>
+                    {post.post_type === 'hackathon_team_building'
+                      ? post.hackathon_timeline || post.description
+                      : post.description}
+                  </p>
+                  <p className={styles.inlineMeta}>
+                    Urgency: {post.urgency} · Deadline: {post.deadline || 'TBD'}
+                  </p>
+                  <div className={styles.roleViewList}>
+                    {!rolesForPost.length && <p className={styles.inlineMeta}>No role requests.</p>}
+                    {rolesForPost.map((role) => {
+                      const myApp = user
+                        ? applications.find((a) => a.applicant_id === user.id && a.post_role_id === role.id)
+                        : null;
+                      const roleApps = isCreator
+                        ? applications.filter((a) => a.post_role_id === role.id)
+                        : [];
+
+                      return (
+                        <div key={role.id} className={styles.roleViewCard}>
+                          <div className={styles.roleViewHeader}>
+                            <div>
+                              <strong>{role.requested_role}</strong>
+                              <p className={styles.meta} style={{ marginTop: 6 }}>
+                                {role.skill} · {role.proficiency_level} · Need {role.number_teammates_required}
+                              </p>
+                              {!!(role.soft_skills || []).length && (
+                                <div className={styles.tags} style={{ marginTop: 8 }}>
+                                  {(role.soft_skills || []).map((s) => (
+                                    <span key={`${role.id}-soft-${s}`}>{s}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {isCreator ? (
+                            <div className={styles.creatorApps}>
+                              {roleApps.length ? (
+                                <div className={styles.appList}>
+                                  {roleApps.map((app) => (
+                                    <div key={app.id} className={styles.appRow}>
+                                      <span className={styles.meta}>
+                                        Applicant: {app.applicant_id.slice(0, 6)}… ({app.status})
+                                      </span>
+                                      {app.status === 'pending' ? (
+                                        <div className={styles.rowActions}>
+                                          <button
+                                            type="button"
+                                            className={styles.primaryBtn}
+                                            onClick={() => decideApplication(app.id, 'accepted')}
+                                          >
+                                            Accept
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className={styles.secondaryBtn}
+                                            onClick={() => decideApplication(app.id, 'rejected')}
+                                          >
+                                            Reject
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span className={styles.meta}>{app.status}</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className={styles.inlineMeta}>No applications yet.</p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className={styles.rowActions}>
+                              {myApp ? (
+                                <span className={styles.meta}>{`Applied (${myApp.status})`}</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className={styles.primaryBtn}
+                                  onClick={() => applyToRole(role.id)}
+                                >
+                                  Apply
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <p>{dev.role}</p>
-                <div className={styles.tags}>
-                  {dev.skills.map((skill) => (
-                    <span key={`${dev.id}-${skill}`}>{skill}</span>
-                  ))}
-                </div>
-                <div className={styles.ctaRow}>
-                  <PillButton>Show Interest</PillButton>
-                  <PillButton active>Ping Direct</PillButton>
-                </div>
-              </CurvedCard>
-            ))}
-          </div>
-        </CurvedCard>
+              );
+            })}
+          </section>
+        </main>
       </section>
     </AppLayout>
   );

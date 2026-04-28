@@ -16,6 +16,8 @@ import DashboardPage from './pages/app/DashboardPage';
 import ProfilePage from './pages/app/ProfilePage';
 import ProjectsPage from './pages/app/ProjectsPage';
 import ProjectDetailPage from './pages/app/ProjectDetailPage';
+import MessagesPage from './pages/app/MessagesPage';
+import PublishRequestPage from './pages/app/PublishRequestPage';
 
 import './styles/globals.css';
 
@@ -97,6 +99,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ProjectDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute>
+              <MessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/publish-collaboration-request"
+          element={
+            <ProtectedRoute>
+              <PublishRequestPage />
             </ProtectedRoute>
           }
         />
