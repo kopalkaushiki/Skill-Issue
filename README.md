@@ -1,6 +1,6 @@
 # skillIssue.app
-A website that helps developers collaborate with other developers on projects
-Updated by Daita Saathika(25/3/2026)
+A website that helps developers collaborate with other developers on projects and find there prefered teams
+
 
 run backend:  
 cd devass/backend
